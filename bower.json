@@ -30,5 +30,6 @@
     "quicksettings": "bit101/quicksettings#^3.0.1",
     "immutable": "^3.8.1",
     "litegui": "jagenjo/litegui.js"
+    "d3": "^4.7.0"
   }
 }

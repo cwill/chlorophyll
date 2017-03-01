@@ -146,6 +146,10 @@ function init() {
 	selectionManager.addCommand('plane', new PlaneSelection(container), 'p');
 	selectionManager.disableButtons();
 
+	var widget = new Cartesian2Widget(container);
+	widget.showAt(200,200);
+	window.widget=widget;
+
 	UI.toolbar.addSeparator();
 
 	initModelFromJson(scene, icosahedron_data);
