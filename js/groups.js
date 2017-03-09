@@ -5,6 +5,7 @@ function PixelGroupMapping(manager, group, id, name) {
 	this.model = group.model;
 
 	var tree_id = group.group_id + '-map-' + id;
+	this.widget = new Cartesian2Widget(container);
 
 	var elem = manager.tree.insertItem({
 		id: tree_id,
@@ -23,8 +24,6 @@ function PixelGroupMapping(manager, group, id, name) {
 		self.model.showUnderlyingModel();
 		screenManager.setActive('main');
 	}
-
-	//this.widget = new Cartesian2Widget(document.getElementById('parent'));
 }
 
 /*

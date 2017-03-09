@@ -1,24 +1,28 @@
-Cartesian2Widget = function(p) {
-	var pw = p.clientWidth, ph = p.clientHeight;
+Cartesian2Widget = function(container) {
+	var pw = container.clientWidth, ph = container.clientHeight;
 
 	var origin = new THREE.Vector2(50,50);
 
-	var axesContainer = d3.select(p)
+	var axesContainer = d3.select(container)
 		.append('svg')
 		.attr('width',  0.3*ph + 'px')
 		.attr('height', 0.3*ph + 'px')
 		.attr('viewBox', '0 0 100 100');
-	var offsetX = 0.3 * ph / 2;
-	var offsetY = 0.3 * ph / 2;
+	var center_x = 0.3 * ph / 2;
+	var center_y = 0.3 * ph / 2;
 	var self = this;
 
 	angle = 0;
-	var x = parseInt(axesContainer.node().style.left || 0) + offsetX;
-	var y = parseInt(axesContainer.node().style.top  || 0) + offsetY;
+	var x = parseInt(axesContainer.node().style.left || 0) + center_x;
+	var y = parseInt(axesContainer.node().style.top  || 0) + center_y;
 
 	var axes = axesContainer.append('g');
 	var xhandle = axes.append("g");
 	var yhandle = axes.append("g");
+
+	var snap_angles = false;
+	Mousetrap.bind('shift', function() { snap_angles = true; }, 'keydown');
+	Mousetrap.bind('shift', function() { snap_angles = false; }, 'keyup');
 
 	function rotate(angleRad) {
 		return 'rotate('+[THREE.Math.radToDeg(angleRad), origin.x, origin.y].join(',')+')';
@@ -27,6 +31,10 @@ Cartesian2Widget = function(p) {
 	var rotateBehavior = d3.drag().on('drag', function() {
 		var clk = new THREE.Vector2(d3.event.x, d3.event.y).sub(origin);
 		angle += clk.angle();
+		/* shift-snap to 15 degree angle increments */
+		if (snap_angles) {
+			angle = angle - (angle % (Math.PI / 12));
+		}
 		axes.attr('transform', rotate(angle));
 	});
 
@@ -52,7 +60,6 @@ Cartesian2Widget = function(p) {
 
 	xhandle.call(arrow, "#f00", 0);
 	yhandle.call(arrow, "#0f0", Math.PI/2);
-	var startX, startY;
 
 	axes.append('circle')
 		.attr('class', 'handle')
@@ -61,29 +68,21 @@ Cartesian2Widget = function(p) {
 		.style('stroke', '#fff')
 		.style('fill', '#fff')
 		.on('mousedown', function() {
-			document.addEventListener("mousemove", _drag);
-			document.addEventListener("mouseup", _endDrag);
-			startX = d3.event.clientX;
-			startY = d3.event.clientY;
+			container.addEventListener("mousemove", _drag);
+			container.addEventListener("mouseup", _endDrag);
 			d3.event.preventDefault();
 		});
 
 	function _drag(event) {
 		event.preventDefault();
-		if (event.clientX - startX == 0 && event.clientY - startY == 0) {
-			return;
-		}
-		self.setPos(x + event.clientX - startX,
-		            y + event.clientY - startY);
-		startX = x;
-		startY = y;
+		coords = Util.relativeCoords(event.pageX, event.pageY);
+		self.setPos(coords.x, coords.y);
 	}
+
 	function _endDrag(event) {
-		document.removeEventListener("mousemove", _drag);
-		document.removeEventListener("mouseup", _endDrag);
-		startX = undefined;
-		startY = undefined;
 		event.preventDefault();
+		container.removeEventListener("mousemove", _drag);
+		container.removeEventListener("mouseup", _endDrag);
 	}
 
 	this.data = function() {
@@ -105,22 +104,22 @@ Cartesian2Widget = function(p) {
 
 	this.setPos = function(vx, vy) {
 		x = vx; y = vy;
-		axesContainer.style('left', (x-offsetX)+'px')
-			         .style('top',  (y-offsetY)+'px');
+		axesContainer.style('left', (x - center_x) + 'px')
+			         .style('top',  (y - center_y) + 'px');
 	}
 
 	function onWindowResize() {
 		var pctx = x / pw;
 		var pcty = y / ph;
 
-		pw = p.clientWidth;
-		ph = p.clientHeight;
+		pw = container.clientWidth;
+		ph = container.clientHeight;
 
 		axesContainer.attr('width',  0.3*ph + 'px')
 		             .attr('height', 0.3*ph + 'px')
 		             .attr('viewBox', '0 0 100 100');
-		offsetX = 0.3 * ph / 2;
-		offsetY = 0.3 * ph / 2;
+		center_x = 0.3 * ph / 2;
+		center_y = 0.3 * ph / 2;
 		x = pctx * pw;
 		y = pcty * ph;
 		self.setPos(x,y);
