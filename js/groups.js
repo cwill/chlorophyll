@@ -22,6 +22,11 @@ function PixelGroup(manager, id, pixels, name, color) {
 		return _nextid++;
 	}
 
+	/*
+	 * If this group is being restored from a snapshot, the name might not
+	 * be valid yet, but it'll get updated when the group info is filled in
+	 * from the snapshot.
+	 */
 	var elem = manager.tree.insertItem({
 		id: this.group_id,
 		content: group_name,
@@ -69,6 +74,11 @@ function PixelGroup(manager, id, pixels, name, color) {
 		this.overlay.setAllFromSet(this.pixels, this.color);
 	}
 
+	this.destroy = function() {
+		this.model.removeOverlay(this.overlay);
+		manager.tree.removeItem(this.group_id);
+	}
+
 	this.addMapping = function() {
 		var map_id = newgid();
 
@@ -94,13 +104,13 @@ function PixelGroup(manager, id, pixels, name, color) {
 		});
 	}
 
-	this.setFromSnapshot = function(snapshot) {
+	this.restore = function(snapshot) {
 		this.name = snapshot.get("name");
 		this.group_id = snapshot.get('id');
 		this.mappings = snapshot.get("mappings");
-		group_color = snapshot.get("color");
 		this.pixels = snapshot.get("pixels");
-		this.overlay.setFromSnapshot(snapshot.get('overlay'));
+		this.overlay.restore(snapshot.get('overlay'));
+		this.color = snapshot.get("color");
 	}
 }
 
@@ -174,7 +184,9 @@ function GroupManager(model) {
 			setCurrentMapping(map);
 		});
 		currGroupInspector.addButton(null, 'Delete Group', function() {
-			console.log("TODO: delete group");
+			var cur = self.currentGroup;
+			clearCurrentGroup();
+			cur.destroy();
 		});
 	}
 
@@ -294,7 +306,7 @@ function GroupManager(model) {
 		var newgroup = new PixelGroup(self, id, groupPixels, defaultName,
 			ColorPool.random());
 
-		this.groups = this.groups.set(id, newgroup);
+		self.groups = self.groups.set(id, newgroup);
 
 
 		newgroup.show();
@@ -305,35 +317,37 @@ function GroupManager(model) {
 	}
 
 	this.snapshot = function () {
-		return this.groups.map(function(groupobj) {
+		return self.groups.map(function(groupobj) {
 			return groupobj.snapshot();
 		});
 	}
 
-	this.setFromSnapshot = function(snapshot) {
+	this.restore = function(snapshot) {
 		/*
 		 * If a group already exists in the current manager, just update it.
 		 * If it doesn't currently exist, we need to create a new one to
 		 * update, and similarly if it stopped existing it should be deleted.
 		 */
 		var newgroups = snapshot.map(function(groupsnap, id) {
-			var existingGroup = this.groups.get(id);
+			var existingGroup = self.groups.get(id);
 			if (existingGroup) {
-				existingGroup.setFromSnapshot(groupsnap);
+				existingGroup.restore(groupsnap);
 				return existingGroup;
 			} else {
-				var newGroup = new PixelGroup(self);
-				newGroup.setFromSnapshot(groupsnap);
+				var newGroup = new PixelGroup(self, id);
+				newGroup.restore(groupsnap);
 				return newGroup;
 			}
 		});
 		// Check for destroyed groups
-		this.groups.forEach(function(group, id) {
+		self.groups.forEach(function(group, id) {
 			if (!newgroups.get(id)) {
-				group.cleanup();
+				if (id == self.currentGroup)
+					clearCurrentGroup();
+				group.destroy();
 			}
 		});
 
-		this.groups = newgroups;
+		self.groups = newgroups;
 	}
 }
