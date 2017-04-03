@@ -96,21 +96,47 @@ function PixelGroup(manager, id, pixels, name, color) {
 	this.snapshot = function() {
 		return Immutable.fromJS({
 			name: group_name,
-			id: this.group_id,
-			pixels: this.pixels,
-			mappings: this.mappings,
-			color: group_color,
-			overlay: this.overlay.snapshot(),
+			id: self.group_id,
+			pixels: self.pixels,
+			color: self.color,
+			overlay: self.overlay.snapshot(),
+			mappings: self.mappings.map(function(map) {
+				return map.snapshot();
+			})
 		});
 	}
 
 	this.restore = function(snapshot) {
-		this.name = snapshot.get("name");
-		this.group_id = snapshot.get('id');
-		this.mappings = snapshot.get("mappings");
-		this.pixels = snapshot.get("pixels");
-		this.overlay.restore(snapshot.get('overlay'));
-		this.color = snapshot.get("color");
+		self.name = snapshot.get("name");
+		self.group_id = snapshot.get('id');
+		self.pixels = snapshot.get("pixels");
+		self.overlay.restore(snapshot.get('overlay'));
+		self.color = snapshot.get("color");
+
+		/*
+		 * If a mapping already exists, just update it.  If it doesn't
+		 * currently exist, we need to create a new one to update, and
+		 * similarly if it stopped existing it should be deleted.
+		 */
+		var newmappings = snapshot.get("mappings").map(function(mapsnap, id) {
+			var existingMapping = self.mappings.get(id);
+			if (existingMapping) {
+				existingMapping.restore(mapsnap);
+				return existingMapping;
+			} else {
+				var newMapping = new ProjectionMapping(manager, self, id);
+				newMapping.restore(mapsnap);
+				return newMapping;
+			}
+		});
+		// Check for destroyed mappings
+		self.mappings.forEach(function(mapping, id) {
+			if (!newmappings.get(id)) {
+				mapping.destroy();
+			}
+		});
+
+		self.mappings = newmappings;
 	}
 }
 

@@ -207,4 +207,14 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 		inspector.addButton(null, 'Save and close', self.makeInactive);
 	}
 
+	this.destroy = function() {
+		self.makeInactive();
+		manager.tree.removeItem(self.tree_id);
+	}
+
+	this.snapshot = function() {
+	}
+
+	this.restore = function() {
+	}
 }
