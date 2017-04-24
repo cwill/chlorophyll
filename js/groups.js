@@ -349,6 +349,7 @@ function GroupManager(model) {
 	}
 
 	this.restore = function(snapshot) {
+        /* TODO gotta do something with currentMapping / currentGroup? */
 		/*
 		 * If a group already exists in the current manager, just update it.
 		 * If it doesn't currently exist, we need to create a new one to

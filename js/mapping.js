@@ -25,6 +25,11 @@ function Polar2DMapping() {
 function ProjectionMapping(manager, group, id, name, maptype) {
 	var self = this;
 
+	var mapping_types = {
+		cartesian2: Cartesian2DMapping,
+		polar2: Polar2DMapping
+	};
+
 	this.group = group;
 	this.model = group.model;
 	this.tree_id = group.group_id + '-map-' + id;
@@ -36,7 +41,6 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	this.widget = null;
 
 	var type = null;
-	var first_enable = true;
 
 	var ui_controls = {};
 
@@ -66,9 +70,8 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 				//self.widget.destroy();
 			}
 			self.mapping_valid = false;
-			first_enable = true;
 			type = newtype;
-			newtype.call(self);
+			mapping_types[newtype].call(self);
 		}
 	}
 
@@ -84,17 +87,17 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 
 	this.setFromCamera = function() {
 		var origin = self.widget.data();
-		var cam_quaternion = screenManager.activeScreen.camera.quaternion.clone();
-		var cam_up = screenManager.activeScreen.camera.up.clone();
+		var cam_quaternion = screen.camera.quaternion.clone();
 
 		// Create plane from the camera's look vector
 		var plane_normal = new THREE.Vector3(0, 0, -1);
 		plane_normal.applyQuaternion(cam_quaternion).normalize();
 		self.proj_plane.plane = new THREE.Plane(plane_normal);
-		self.proj_plane.euler = screenManager.activeScreen.camera.rotation.clone();
+		self.proj_plane.euler = screen.camera.rotation.clone();
 
 		// Create axes for the projection and rotate them appropriately
-		self.proj_plane.yaxis = cam_up.clone().applyQuaternion(cam_quaternion);
+		var up = screen.camera.up.clone();
+		self.proj_plane.yaxis = up.applyQuaternion(cam_quaternion);
 		self.proj_plane.yaxis.applyAxisAngle(plane_normal, origin.angle);
 		self.proj_plane.yaxis.normalize();
 
@@ -105,11 +108,10 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 		// plane.  This is the 3d position of the mapping origin.
 		var raycaster = new THREE.Raycaster();
 		var widgetpos = new THREE.Vector2(origin.x, origin.y);
-		raycaster.setFromCamera(widgetpos, screenManager.activeScreen.camera);
+		raycaster.setFromCamera(widgetpos, screen.camera);
 		self.proj_plane.origin = raycaster.ray.intersectPlane(self.proj_plane.plane);
 
 		self.mapping_valid = true;
-		// TODO undo snapshot
 	}
 
 	/* Updates the camera projection and shows it in the ui */
@@ -120,6 +122,7 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 				angle.y * THREE.Math.RAD2DEG,
 				angle.z * THREE.Math.RAD2DEG], true);
 		self.setFromCamera();
+		worldState.checkpoint();
 	}
 
 	this.makeInactive = function() {
@@ -144,15 +147,8 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 		self.model.hideUnderlyingModel();
 		screenManager.setActive(self.tree_id);
 
-		if (first_enable) {
-			first_enable = false;
-			self.widget.showAt(200,200);
-		} else {
-			self.widget.show();
-		}
-
+        self.widget.show();
 		self.enabled = true;
-
 
 		screen.controls.addEventListener('end', setProjection);
 
@@ -202,9 +198,13 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 			origin_pos_widget.setValue([map_origin.x,
 			                            map_origin.y,
 			                            map_origin.z], true);
+            worldState.checkpoint();
 		}
 
-		inspector.addButton(null, 'Save and close', self.makeInactive);
+		inspector.addButton(null, 'Save and close', function() {
+			self.makeInactive();
+            worldState.checkpoint();
+		});
 	}
 
 	this.destroy = function() {
@@ -213,8 +213,43 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	}
 
 	this.snapshot = function() {
+        var widgetdata = self.widget.data();
+        snap = {
+			name: mapping_name,
+			id: self.tree_id,
+			maptype: type,
+			enabled: self.enabled,
+			mapping_valid: self.mapping_valid,
+			widget_x: widgetdata.x
+			widget_y: widgetdata.y
+			widget_angle: widgetdata.angle
+		}
+		if (self.mapping_valid) {
+			var normal = self.proj_plane.euler;
+			snap.plane_normal = [normal.x, normal.y, normal.z];
+        }
+		return Immutable.fromJS(snap);
 	}
 
-	this.restore = function() {
+	this.restore = function(snapshot) {
+        // If a mapping is active, no other mapping will be active.
+        self.tree_id = snapshot.get('id');
+        self.name = snapshot.get('name');
+        self.setType(snapshot.get('type'));
+        self.widget.setPos(snapshot.get('widget_x'), snapshot.get('widget_y'));
+        self.widget.setAngle(snapshot.get('widget_angle');
+        self.mapping_valid = snapshot.get('mapping_valid');
+        if (self.mapping_valid) {
+            var norm = snapshot.get('plane_normal');
+            var euler = new THREE.Euler(norm.get(0), norm.get(1), norm.get(2));
+            Util.alignWithVector(euler, screen.camera);
+            self.setFromCamera();
+        }
+		var new_enabled = snapshot.get('enabled');
+
+		// TODO: enabled->disabled and disabled->enabled:
+		// Set enabled from the groupydealy? need to make current mapping config
+		// inspector for the right mapping. call makeActive / makeInactive from
+		// group manager, probably, since that handles the UI panel.
 	}
 }
