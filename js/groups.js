@@ -84,8 +84,7 @@ function PixelGroup(manager, id, pixels, name, color) {
 
 		var name = 'map-'+map_id;
 		var default_type = Cartesian2DMapping;
-		var mapping = new ProjectionMapping(manager, this, map_id, name,
-				Cartesian2DMapping);
+		var mapping = new ProjectionMapping(manager, this, map_id, name, 'cartesian2');
 
 		this.mappings = this.mappings.set(map_id, mapping);
 		worldState.checkpoint();
@@ -233,8 +232,8 @@ function GroupManager(model) {
 			}
 		});
 		var map_types = {}
-		map_types["2d Cartesian"] = Cartesian2DMapping;
-		map_types["2d Polar"] = Polar2DMapping;
+		map_types["2d Cartesian"] = 'cartesian2';
+		map_types["2d Polar"] = 'polar2';
 		currMappingInspector.addCombo("Mapping type", "2d Cartesian", {
 			values: map_types,
 			callback: function(v) {
@@ -242,7 +241,8 @@ function GroupManager(model) {
 			}
 		});
 		currMappingInspector.addButton(null, 'Configure Mapping', function() {
-			configureCurrentMapping();
+            if (!self.currentMapping.enabled)
+                configureCurrentMapping();
 		});
 	}
 
@@ -343,19 +343,29 @@ function GroupManager(model) {
 	}
 
 	this.snapshot = function () {
-		return self.groups.map(function(groupobj) {
+		var groups_snap = self.groups.map(function(groupobj) {
 			return groupobj.snapshot();
 		});
+        return Immutable.fromJS({
+            groups: groups_snap,
+            current_map_id: self.currentMapping ? self.currentMapping.id : -1,
+            current_group_id: self.currentGroup ? self.currentGroup.id : -1
+		})
 	}
 
 	this.restore = function(snapshot) {
-        /* TODO gotta do something with currentMapping / currentGroup? */
+		var is_configuring = self.currentMapping ? self.currentMapping.enabled : false;
+		var new_curgid = snapshot.get('current_group_id');
+		var new_curmid = snapshot.get('current_map_id');
+		var old_curgid = self.currentGroup ? self.currentGroup.id : -1;
+		var old_curmid = self.currentMapping ? self.currentMapping.id : -1;
+
 		/*
 		 * If a group already exists in the current manager, just update it.
 		 * If it doesn't currently exist, we need to create a new one to
 		 * update, and similarly if it stopped existing it should be deleted.
 		 */
-		var newgroups = snapshot.map(function(groupsnap, id) {
+		var newgroups = snapshot.get('groups').map(function(groupsnap, id) {
 			var existingGroup = self.groups.get(id);
 			if (existingGroup) {
 				existingGroup.restore(groupsnap);
@@ -374,7 +384,25 @@ function GroupManager(model) {
 				group.destroy();
 			}
 		});
-
 		self.groups = newgroups;
+
+		// UI state munging: make sure we're in the same state as when the
+		// snapshot was taken..
+		if (old_curgid != new_curgid) {
+			clearCurrentGroup();
+			if (new_curgid != -1)
+				setCurrentGroup(self.groups.get(new_curgid));
+		}
+		if (old_curmid != new_curmid) {
+			clearCurrentMapping();
+			if (new_curmid != -1)
+				setCurrentMapping(currentGroup.mappings.get(new_curmid));
+		}
+		if (is_configuring) {
+			if (!self.currentMapping.enabled)
+				self.currentMapping.makeInactive();
+		} else if (self.currentMapping && self.currentMapping.enabled) {
+			configureCurrentMapping();
+		}
 	}
 }

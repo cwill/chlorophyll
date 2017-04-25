@@ -32,6 +32,7 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 
 	this.group = group;
 	this.model = group.model;
+	this.id = id;
 	this.tree_id = group.group_id + '-map-' + id;
 	var mapping_name = name;
 
@@ -126,7 +127,6 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	}
 
 	this.makeInactive = function() {
-		if (!self.enabled) return;
 		self.model.showUnderlyingModel();
 		screenManager.setActive('main');
 		self.widget.hide();
@@ -208,7 +208,8 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	}
 
 	this.destroy = function() {
-		self.makeInactive();
+		if (self.enabled)
+			self.makeInactive();
 		manager.tree.removeItem(self.tree_id);
 	}
 
@@ -216,12 +217,13 @@ function ProjectionMapping(manager, group, id, name, maptype) {
         var widgetdata = self.widget.data();
         snap = {
 			name: mapping_name,
-			id: self.tree_id,
+			id: self.id,
+			tree_id: self.tree_id,
 			maptype: type,
 			enabled: self.enabled,
 			mapping_valid: self.mapping_valid,
-			widget_x: widgetdata.x
-			widget_y: widgetdata.y
+			widget_x: widgetdata.x,
+			widget_y: widgetdata.y,
 			widget_angle: widgetdata.angle
 		}
 		if (self.mapping_valid) {
@@ -233,23 +235,20 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 
 	this.restore = function(snapshot) {
         // If a mapping is active, no other mapping will be active.
-        self.tree_id = snapshot.get('id');
-        self.name = snapshot.get('name');
-        self.setType(snapshot.get('type'));
-        self.widget.setPos(snapshot.get('widget_x'), snapshot.get('widget_y'));
-        self.widget.setAngle(snapshot.get('widget_angle');
-        self.mapping_valid = snapshot.get('mapping_valid');
-        if (self.mapping_valid) {
-            var norm = snapshot.get('plane_normal');
-            var euler = new THREE.Euler(norm.get(0), norm.get(1), norm.get(2));
-            Util.alignWithVector(euler, screen.camera);
-            self.setFromCamera();
-        }
-		var new_enabled = snapshot.get('enabled');
-
-		// TODO: enabled->disabled and disabled->enabled:
-		// Set enabled from the groupydealy? need to make current mapping config
-		// inspector for the right mapping. call makeActive / makeInactive from
-		// group manager, probably, since that handles the UI panel.
+		self.id = snapshot.get('id');
+		self.tree_id = snapshot.get('tree_id');
+		self.name = snapshot.get('name');
+		self.setType(snapshot.get('type'));
+		self.widget.setPos(snapshot.get('widget_x'), snapshot.get('widget_y'));
+		self.widget.setAngle(snapshot.get('widget_angle'));
+		self.mapping_valid = snapshot.get('mapping_valid');
+		if (self.mapping_valid) {
+			var norm = snapshot.get('plane_normal');
+			var euler = new THREE.Euler(norm.get(0), norm.get(1), norm.get(2));
+			Util.alignWithVector(euler, screen.camera);
+			self.setFromCamera();
+		}
+		// Enabling / disabling is handled by the GroupManager
+		self.enabled = snapshot.get('enabled');
 	}
 }
