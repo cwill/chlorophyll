@@ -246,17 +246,14 @@ function GroupManager(model) {
 	}
 
 	this.clearCurrentMapping = function() {
+		self.tree.setSelectedItem(self.currentGroup.tree_id, false, false);
 		self.currentMapping = null;
 		currMappingInspector.clear();
 	}
 
 	this.clearCurrentGroup = function() {
 		self.clearCurrentMapping();
-		var sel = self.tree.root.querySelectorAll('.selected, .semiselected');
-		for (var elem of sel) {
-			elem.classList.remove('selected');
-			elem.classList.remove('semiselected');
-		}
+		self.tree.setSelectedItem(null, false, false);
 		self.currentGroup = null;
 		group_namefield = null;
 		currGroupInspector.clear();
@@ -267,6 +264,8 @@ function GroupManager(model) {
 		{height: '100%', allow_rename: true}
 	);
 
+	// XXX onBackgroundClicked needs patched since liteGUI uses depricated
+	// event.srcElement instead of event.target.
 	this.tree.onBackgroundClicked = function() {
 		self.clearCurrentGroup();
 	}
