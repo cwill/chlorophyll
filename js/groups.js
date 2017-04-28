@@ -85,9 +85,7 @@ function PixelGroup(manager, id, pixels, name, color) {
 
 		var name = 'map-'+map_id;
 		var mapping = new ProjectionMapping(manager, this, map_id, name, 'cartesian2');
-
 		this.mappings = this.mappings.set(map_id, mapping);
-		worldState.checkpoint();
 
 		return mapping;
 	}
@@ -133,8 +131,8 @@ function PixelGroup(manager, id, pixels, name, color) {
 		// Check for destroyed mappings
 		self.mappings.forEach(function(mapping, id) {
 			if (!newmappings.get(id)) {
-				if (self.currentMapping && id == self.currentMapping.id)
-					clearCurrentMapping();
+				if (manager.currentMapping && id == manager.currentMapping.id)
+					manager.clearCurrentMapping();
 				mapping.destroy();
 			}
 		});
@@ -177,9 +175,10 @@ function GroupManager(model) {
 		var newgroup = self.createFromActiveSelection();
 		if (newgroup) {
 			self.tree.setSelectedItem(newgroup.tree_id);
-			setCurrentGroup(newgroup);
-			clearCurrentMapping();
+			self.setCurrentGroup(newgroup);
+			self.clearCurrentMapping();
 		}
+		worldState.checkpoint();
 	});
 	groupCmds.addSeparator();
 
@@ -187,7 +186,7 @@ function GroupManager(model) {
 	var currMappingInspector = new LiteGUI.Inspector();
 	var mappingConfigInspector = new LiteGUI.Inspector();
 
-	function setCurrentGroup(group) {
+	this.setCurrentGroup = function(group) {
 		self.currentGroup = group;
 		currGroupInspector.clear();
 		currGroupInspector.addSection('Current Group');
@@ -202,21 +201,17 @@ function GroupManager(model) {
 			}
 		});
 		currGroupInspector.addSeparator();
+		// TODO make this button do something
 		currGroupInspector.addButton(null, 'Add Active Selection to Group');
-		/*
-		 * XXX This probably isn't super useful?
-		currGroupInspector.addButton(null, 'Deselect', function() {
-			clearCurrentGroup();
-		});
-		*/
 		currGroupInspector.addButton(null, 'Add Mapping', function() {
 			var map = self.currentGroup.addMapping()
 			self.tree.setSelectedItem(map.tree_id);
-			setCurrentMapping(map);
+			self.setCurrentMapping(map);
+			worldState.checkpoint();
 		});
 		currGroupInspector.addButton(null, 'Delete Group', function() {
 			var cur = self.currentGroup;
-			clearCurrentGroup();
+			self.clearCurrentGroup();
 			cur.destroy();
 		});
 	}
@@ -226,8 +221,8 @@ function GroupManager(model) {
 		self.currentMapping.makeActive(mappingConfigInspector);
 	}
 
-	function setCurrentMapping(mapping) {
-		setCurrentGroup(mapping.group);
+	this.setCurrentMapping = function(mapping) {
+		self.setCurrentGroup(mapping.group);
 		self.currentMapping = mapping;
 
 		currMappingInspector.clear();
@@ -240,9 +235,8 @@ function GroupManager(model) {
 		currMappingInspector.addCombo("Mapping type", mapping.type, {
 			values: MapUtil.type_menu,
 			callback: function(v) {
-				if (self.currentMapping.enabled)
-					self.currentMapping.makeInactive();
 				self.currentMapping.setType(v);
+				worldState.checkpoint();
 			}
 		});
 		currMappingInspector.addButton(null, 'Configure Mapping', function() {
@@ -251,13 +245,13 @@ function GroupManager(model) {
 		});
 	}
 
-	function clearCurrentMapping() {
+	this.clearCurrentMapping = function() {
 		self.currentMapping = null;
 		currMappingInspector.clear();
 	}
 
-	function clearCurrentGroup() {
-		clearCurrentMapping();
+	this.clearCurrentGroup = function() {
+		self.clearCurrentMapping();
 		var sel = self.tree.root.querySelectorAll('.selected, .semiselected');
 		for (var elem of sel) {
 			elem.classList.remove('selected');
@@ -274,7 +268,7 @@ function GroupManager(model) {
 	);
 
 	this.tree.onBackgroundClicked = function() {
-		clearCurrentGroup();
+		self.clearCurrentGroup();
 	}
 
 	this.tree.root.addEventListener('item_selected', function(event) {
@@ -289,10 +283,10 @@ function GroupManager(model) {
 		currentSelection = event.detail.item;
 
 		if (dataset.group) {
-			setCurrentGroup(dataset.group);
-			clearCurrentMapping();
+			self.setCurrentGroup(dataset.group);
+			self.clearCurrentMapping();
 		} else if (dataset.mapping) {
-			setCurrentMapping(dataset.mapping);
+			self.setCurrentMapping(dataset.mapping);
 		}
 	});
 
@@ -338,11 +332,7 @@ function GroupManager(model) {
 			ColorPool.random());
 
 		self.groups = self.groups.set(id, newgroup);
-
-
 		newgroup.show();
-		// Mark the group on the model
-		worldState.checkpoint();
 
 		return newgroup;
 	}
@@ -379,7 +369,7 @@ function GroupManager(model) {
 		self.groups.forEach(function(group, id) {
 			if (!newgroups.get(id)) {
 				if (self.currentGroup && id == self.currentGroup.id)
-					clearCurrentGroup();
+					self.clearCurrentGroup();
 				group.destroy();
 			}
 		});
@@ -389,16 +379,16 @@ function GroupManager(model) {
 		// are the same as when the snapshot was taken.
 		var cur_gid = snapshot.get('current_group_id');
 		var cur_mid = snapshot.get('current_map_id');
-		clearCurrentGroup();
+		self.clearCurrentGroup();
 		if (cur_gid != -1) {
 			var group = self.groups.get(cur_gid);
 			self.tree.setSelectedItem(group.tree_id);
-			setCurrentGroup(group);
+			self.setCurrentGroup(group);
 		}
 		if (cur_mid != -1) {
 			var mapping = self.currentGroup.mappings.get(cur_mid);
 			self.tree.setSelectedItem(mapping.tree_id);
-			setCurrentMapping(mapping);
+			self.setCurrentMapping(mapping);
 		}
 	}
 }
