@@ -1,3 +1,6 @@
+/*
+ * Definitions for different types of projection mappings
+ */
 function Cartesian2DMapping() {
 	this.widget = new CartesianAxes(container);
 
@@ -22,18 +25,37 @@ function Polar2DMapping() {
 	}
 }
 
+
+/*
+ * Mapping utility values
+ */
+MapUtil = {
+	mapping_types: {
+		cartesian2: {
+			name: "2D Cartesian",
+			func: Cartesian2DMapping
+		},
+		polar2: {
+			name: "2D Polar",
+			func: Polar2DMapping
+		}
+	},
+	// generated from mapping_types
+	type_menu: {}
+}
+// Generate display name -> use name mapping for the settings menu
+for (type in MapUtil.mapping_types) {
+	MapUtil.type_menu[MapUtil.mapping_types[type].name] = type;
+}
+
+
 function ProjectionMapping(manager, group, id, name, maptype) {
 	var self = this;
-
-	var mapping_types = {
-		cartesian2: Cartesian2DMapping,
-		polar2: Polar2DMapping
-	};
 
 	this.group = group;
 	this.model = group.model;
 	this.id = id;
-	this.tree_id = group.group_id + '-map-' + id;
+	this.tree_id = group.tree_id + '-map-' + id;
 	var mapping_name = name;
 
 	this.enabled = false;
@@ -41,7 +63,7 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	this.proj_plane = {};
 	this.widget = null;
 
-	var type = null;
+	this.type = null;
 
 	var ui_controls = {};
 
@@ -52,7 +74,7 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 		id: self.tree_id,
 		content: mapping_name,
 		dataset: {mapping: self}
-	}, group.group_id);
+	}, group.tree_id);
 
 	Object.defineProperty(this, 'name', {
 		get: function() { return mapping_name; },
@@ -66,13 +88,12 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	});
 
 	this.setType = function(newtype) {
-		if (newtype != type) {
-			if (self.widget) {
-				//self.widget.destroy();
-			}
+		if (newtype != self.type) {
+			if (self.enabled)
+				self.makeInactive();
 			self.mapping_valid = false;
-			type = newtype;
-			mapping_types[newtype].call(self);
+			self.type = newtype;
+			MapUtil.mapping_types[newtype].func.call(self);
 		}
 	}
 
@@ -123,7 +144,6 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 				angle.y * THREE.Math.RAD2DEG,
 				angle.z * THREE.Math.RAD2DEG], true);
 		self.setFromCamera();
-		worldState.checkpoint();
 	}
 
 	this.makeInactive = function() {
@@ -195,15 +215,13 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 		self.widget.onChange = function(data) {
 			self.setFromCamera();
 			var map_origin = self.proj_plane.origin;
-			origin_pos_widget.setValue([map_origin.x,
-			                            map_origin.y,
-			                            map_origin.z], true);
-            worldState.checkpoint();
+			origin_pos_widget.setValue([map_origin.x, map_origin.y, map_origin.z], true);
 		}
 
 		inspector.addButton(null, 'Save and close', function() {
 			self.makeInactive();
-            worldState.checkpoint();
+			// Only snapshot state on save+close to avoid gross state fiddling
+			worldState.checkpoint();
 		});
 	}
 
@@ -214,13 +232,16 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	}
 
 	this.snapshot = function() {
-        var widgetdata = self.widget.data();
-        snap = {
+		if (self.enabled) {
+			console.error("Attempted to snapshot ", self.tree_id,
+			    " while enabled");
+		}
+		var widgetdata = self.widget.data();
+		snap = {
 			name: mapping_name,
 			id: self.id,
 			tree_id: self.tree_id,
-			maptype: type,
-			enabled: self.enabled,
+			type: self.type,
 			mapping_valid: self.mapping_valid,
 			widget_x: widgetdata.x,
 			widget_y: widgetdata.y,
@@ -234,7 +255,9 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 	}
 
 	this.restore = function(snapshot) {
-        // If a mapping is active, no other mapping will be active.
+		if (self.enabled) {
+			self.makeInactive();
+		}
 		self.id = snapshot.get('id');
 		self.tree_id = snapshot.get('tree_id');
 		self.name = snapshot.get('name');
@@ -245,10 +268,9 @@ function ProjectionMapping(manager, group, id, name, maptype) {
 		if (self.mapping_valid) {
 			var norm = snapshot.get('plane_normal');
 			var euler = new THREE.Euler(norm.get(0), norm.get(1), norm.get(2));
-			Util.alignWithVector(euler, screen.camera);
+			var cam_up = new THREE.Vector3(0, 0, 1);
+			Util.alignWithVector(cam_up.applyEuler(euler), screen.camera);
 			self.setFromCamera();
 		}
-		// Enabling / disabling is handled by the GroupManager
-		self.enabled = snapshot.get('enabled');
 	}
 }
