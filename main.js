@@ -7,7 +7,6 @@ var groupManager;
 var patternManager;
 
 // chlorophyll objects
-var model;
 var worldState;
 var selectionThreshold = 5; // put this somewhere reasonable...?
 
@@ -19,7 +18,7 @@ init();
 animate();
 
 function initModelFromJson(scene, json) {
-	model = new Model(json);
+	var model = new Model(json);
 	model.addToScene(scene);
 	groupManager = new GroupManager(model);
 	patternManager = new PatternManager();
@@ -28,7 +27,7 @@ function initModelFromJson(scene, json) {
 		groupSet: groupManager,
 		graphManager: patternManager,
 	});
-
+	return model;
 }
 
 function chooseModelFile(scene, file) {
@@ -152,19 +151,13 @@ function init() {
 	backPlane =  new THREE.Plane(nv, 1000);
 	renderer.clippingPlanes = [frontPlane, backPlane];
 
+	var model = initModelFromJson(scene, chrysanthemum);
+
 	selectionManager = new CommandManager('Edit/Select', UI.toolbar, UI.menu);
-	selectionManager.addCommand('marquee', new MarqueeSelection(container), 'm');
-	selectionManager.addCommand('line', new LineSelection(container), 'l');
-	selectionManager.addCommand('plane', new PlaneSelection(container), 'p');
-	selectionManager.disableButtons();
-
+	selectionManager.addCommand('marquee', new MarqueeSelection(container, model), 'm');
+	selectionManager.addCommand('line', new LineSelection(container, model), 'l');
+	selectionManager.addCommand('plane', new PlaneSelection(container, model), 'p');
 	UI.toolbar.addSeparator();
-
-	initModelFromJson(scene, chrysanthemum);
-	selectionManager.foreachCommand(function(command) {
-		command.model = model;
-	});
-
 	selectionManager.enableButtons();
 
 	mainarea.onresize = screenManager.resize;

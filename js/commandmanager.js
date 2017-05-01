@@ -2,13 +2,14 @@ function CommandManager(managername, toolbar, menu) {
 	var self = this;
 	var commands = [];
 	var defaultCommand;
-	var commandInProgress = undefined;
+	var commandInProgress = null;
 
 	function startCommand(command) {
 		self.disableButtons();
 
 		command.start();
 		command.elem.disabled = false;
+		Util.hilightElement(command.elem);
 		commandInProgress = command;
 	}
 
@@ -21,6 +22,7 @@ function CommandManager(managername, toolbar, menu) {
 	this.enableButtons = function() {
 		self.foreachCommand(function(command) {
 			command.elem.disabled = false;
+			Util.unhilightElement(command.elem);
 		});
 	}
 
@@ -32,14 +34,14 @@ function CommandManager(managername, toolbar, menu) {
 
 	this.endCommand = function() {
 		self.enableButtons();
-		commandInProgress = undefined;
+		commandInProgress = null;
 	}
 
 	self.addCommand = function(name, command, hotkey) {
 		command.manager = self;
 
 		var f = function() {
-			if (commandInProgress != undefined)
+			if (commandInProgress != null)
 				return;
 			startCommand(command);
 		}
