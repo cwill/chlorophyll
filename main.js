@@ -153,7 +153,7 @@ function init() {
 
 	var model = initModelFromJson(scene, chrysanthemum);
 
-	selectionManager = new CommandManager('Edit/Select', UI.toolbar, UI.menu);
+	selectionManager = new Toolbox('Edit/Select', UI.toolbar, UI.menu);
 	selectionManager.addCommand('marquee', new MarqueeSelection(container, model), 'm');
 	selectionManager.addCommand('line', new LineSelection(container, model), 'l');
 	selectionManager.addCommand('plane', new PlaneSelection(container, model), 'p');

@@ -12,6 +12,8 @@ SelectionTool = function(viewport, model) {
 
 	this.viewport = viewport !== undefined ? viewport : document;
 	this.model = model;
+	// Used by Toolbox
+	this.elem = null;
 
 	this.highlight = new THREE.Color(0xffffff);
 
@@ -42,24 +44,25 @@ SelectionTool = function(viewport, model) {
 
 	// Called when the tool is activated
 	this.enable = function() {
-		this.enabled = true;
-		Mousetrap.bind('esc', this.deselectAll);
+		self.enabled = true;
+		Mousetrap.bind('esc', self.deselectAll);
 		screenManager.activeScreen.controlsEnabled = false;
 	};
 
 	// Called when the user switches away from this tool
 	this.disable = function() {
-		this.enabled = false;
-		this.in_progress = false;
-		this.adding = false;
-		this.subtracting = false;
+		if (self.in_progress)
+			self.cancelSelection();
+
+		self.enabled = false;
+		self.in_progress = false;
+		self.adding = false;
+		self.subtracting = false;
 
 		Mousetrap.unbind('esc');
 		screenManager.activeScreen.controlsEnabled = true;
 
 		this.current_selection.clear();
-		if (this.cleanup)
-			this.cleanup();
 	};
 
 	// startSelection and finishSelection are called when the tool begins and ends
@@ -67,21 +70,21 @@ SelectionTool = function(viewport, model) {
 
 	// Takes the mouse event which began the selection.
 	this.startSelection = function(event) {
-		this.adding = false;
-		this.subtracting = false;
+		self.adding = false;
+		self.subtracting = false;
 		if (event.altKey) {
-			this.subtracting = true;
+			self.subtracting = true;
 		} else if (event.shiftKey) {
-			this.adding = true;
+			self.adding = true;
 		} else {
 			// Start with an empty selection if we're not adding or subtracting
 			// from an existing one.
 			worldState.activeSelection.clear();
 		}
-		this.in_progress = true;
-		this.current_selection.clear();
-		this.current_selection.setAll(worldState.activeSelection);
-		this.initial_selection = this.current_selection.getPixels();
+		self.in_progress = true;
+		self.current_selection.clear();
+		self.current_selection.setAll(worldState.activeSelection);
+		self.initial_selection = this.current_selection.getPixels();
 		worldState.activeSelection.clear();
 
 		Mousetrap.unbind('esc');
@@ -89,9 +92,9 @@ SelectionTool = function(viewport, model) {
 	}
 
 	function endSelection() {
-		this.in_progress = false;
-		this.current_selection.clear();
-		this.initial_selection = null;
+		self.in_progress = false;
+		self.current_selection.clear();
+		self.initial_selection = null;
 
 		Mousetrap.unbind('esc');
 		Mousetrap.bind('esc', this.deselectAll);
@@ -99,7 +102,7 @@ SelectionTool = function(viewport, model) {
 
 	// Stop selecting and save the current selection as final.
 	this.finishSelection = function() {
-		worldState.activeSelection.setAll(this.current_selection);
+		worldState.activeSelection.setAll(self.current_selection);
 		endSelection();
 		worldState.checkpoint();
 	}
@@ -107,14 +110,9 @@ SelectionTool = function(viewport, model) {
 	// Don't exit the tool, but stop selecting and throw out state, returning
 	// to before the selection
 	this.cancelSelection = function() {
-		worldState.activeSelection.setAllFromSet(this.initial_selection);
+		worldState.activeSelection.setAllFromSet(self.initial_selection);
 		endSelection();
 	}
-
-	// Optional function: set per-tool to clean up any needed state when the
-	// tool exits
-	// TODO should this be event-based?
-	this.cleanup = null;
 }
 
 MarqueeSelection = function(viewport, model) {
@@ -123,28 +121,17 @@ MarqueeSelection = function(viewport, model) {
 
 	var rect = {};
 
-	this.dom = document.createElement('div');
-	this.dom.style.position = 'absolute';
-	this.dom.style.borderStyle = 'dotted';
-	this.dom.style.borderWidth = '1px';
-	this.dom.style.borderColor = 'white';
+	this.box = document.createElement('div');
+	this.box.style.position = 'absolute';
+	this.box.style.borderStyle = 'dotted';
+	this.box.style.borderWidth = '1px';
+	this.box.style.borderColor = 'white';
 
-	this.viewport.appendChild(this.dom);
+	this.viewport.appendChild(this.box);
 
 	this.viewport.addEventListener('mousedown', onMouseDown, false);
 	this.viewport.addEventListener('mouseup', onMouseUp, false);
 	this.viewport.addEventListener('mousemove', onMouseMove, false);
-
-	this.start = function() {
-	}
-
-	this.cleanup = function() {
-		self.dom.style.display = 'none';
-		self.dom.style.left = 0;
-		self.dom.style.top = 0;
-		self.dom.style.width = 0;
-		self.dom.style.height = 0;
-	}
 
 	function onMouseDown(event) {
 		if (!self.enabled)
@@ -155,7 +142,7 @@ MarqueeSelection = function(viewport, model) {
 		var coords = Util.relativeCoords(container, event.pageX, event.pageY);
 		rect.startX = coords.x;
 		rect.startY = coords.y;
-		self.dom.style.display = 'block';
+		self.box.style.display = 'block';
 	}
 
 	function drawRect() {
@@ -165,15 +152,21 @@ MarqueeSelection = function(viewport, model) {
 		t = Math.min(rect.startY, rect.endY);
 		b = Math.max(rect.startY, rect.endY);
 
-		self.dom.style.left = l+'px';
-		self.dom.style.top = t+'px';
-		self.dom.style.width = (r - l) + 'px';
-		self.dom.style.height = (b - t) + 'px';
+		self.box.style.left = l+'px';
+		self.box.style.top = t+'px';
+		self.box.style.width = (r - l) + 'px';
+		self.box.style.height = (b - t) + 'px';
 	}
 
 	function onMouseUp(event) {
-		if (self.in_progress)
+		if (!self.in_progress)
 			return;
+
+		self.box.style.display = 'none';
+		self.box.style.left = 0;
+		self.box.style.top = 0;
+		self.box.style.width = 0;
+		self.box.style.height = 0;
 
 		self.finishSelection();
 	}

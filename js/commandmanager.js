@@ -1,15 +1,13 @@
-function CommandManager(managername, toolbar, menu) {
+function Toolbox(managername, toolbar, menu) {
 	var self = this;
 	var commands = [];
 	var defaultCommand;
 	var commandInProgress = null;
 
 	function startCommand(command) {
-		self.disableButtons();
-
-		command.start();
-		command.elem.disabled = false;
-		Util.hilightElement(command.elem);
+		command.enable();
+		command.ui_button.disabled = false;
+		Util.hilightElement(command.ui_button);
 		commandInProgress = command;
 	}
 
@@ -21,28 +19,28 @@ function CommandManager(managername, toolbar, menu) {
 
 	this.enableButtons = function() {
 		self.foreachCommand(function(command) {
-			command.elem.disabled = false;
-			Util.unhilightElement(command.elem);
+			command.ui_button.disabled = false;
+			Util.unhilightElement(command.ui_button);
 		});
 	}
 
 	this.disableButtons = function() {
 		self.foreachCommand(function(command) {
-			command.elem.disabled = true;
+			command.ui_button.disabled = true;
 		});
 	}
 
 	this.endCommand = function() {
-		self.enableButtons();
+		commandInProgress.disable();
 		commandInProgress = null;
 	}
 
-	self.addCommand = function(name, command, hotkey) {
+	this.addCommand = function(name, command, hotkey) {
 		command.manager = self;
 
 		var f = function() {
 			if (commandInProgress != null)
-				return;
+				self.endCommand();
 			startCommand(command);
 		}
 
@@ -55,9 +53,8 @@ function CommandManager(managername, toolbar, menu) {
 		if (menu)
 			menu.add(managername+'/'+name, f);
 
-		command.elem = elem;
+		command.ui_button = elem;
 
 		commands.push(command);
-
 	}
 }
