@@ -46,7 +46,6 @@ SelectionTool = function(viewport, model) {
 	this.enable = function() {
 		self.enabled = true;
 		Mousetrap.bind('esc', self.deselectAll);
-		screenManager.activeScreen.controlsEnabled = false;
 	};
 
 	// Called when the user switches away from this tool
@@ -60,7 +59,6 @@ SelectionTool = function(viewport, model) {
 		self.subtracting = false;
 
 		Mousetrap.unbind('esc');
-		screenManager.activeScreen.controlsEnabled = true;
 
 		self.current_selection.clear();
 	};
