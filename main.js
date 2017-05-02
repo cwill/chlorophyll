@@ -153,12 +153,20 @@ function init() {
 
 	var model = initModelFromJson(scene, chrysanthemum);
 
-	selectionManager = new Toolbox('Edit/Select', UI.toolbar, UI.menu);
-	selectionManager.addCommand('marquee', new MarqueeSelection(container, model), 'm');
-	selectionManager.addCommand('line', new LineSelection(container, model), 'l');
-	selectionManager.addCommand('plane', new PlaneSelection(container, model), 'p');
+	var toolbarManager = new Toolbox('Edit/Select', UI.toolbar, UI.menu);
+	toolbarManager.addCommand("camera", {
+		enable: function() {
+			screenManager.activeScreen.controlsEnabled = true;
+		},
+		disable: function() {
+			screenManager.activeScreen.controlsEnabled = false;
+		}
+	}, 'c');
 	UI.toolbar.addSeparator();
-	selectionManager.enableButtons();
+	toolbarManager.addCommand('marquee', new MarqueeSelection(container, model), 'm');
+	toolbarManager.addCommand('line', new LineSelection(container, model), 'l');
+	toolbarManager.addCommand('plane', new PlaneSelection(container, model), 'p');
+	toolbarManager.enableButtons();
 
 	mainarea.onresize = screenManager.resize;
 	window.addEventListener('resize', screenManager.resize, false);

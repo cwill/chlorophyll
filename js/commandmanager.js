@@ -27,11 +27,13 @@ function Toolbox(managername, toolbar, menu) {
 	this.disableButtons = function() {
 		self.foreachCommand(function(command) {
 			command.ui_button.disabled = true;
+			Util.unhilightElement(command.ui_button);
 		});
 	}
 
 	this.endCommand = function() {
 		commandInProgress.disable();
+		Util.unhilightElement(commandInProgress.ui_button);
 		commandInProgress = null;
 	}
 

@@ -62,7 +62,7 @@ SelectionTool = function(viewport, model) {
 		Mousetrap.unbind('esc');
 		screenManager.activeScreen.controlsEnabled = true;
 
-		this.current_selection.clear();
+		self.current_selection.clear();
 	};
 
 	// startSelection and finishSelection are called when the tool begins and ends
@@ -84,11 +84,11 @@ SelectionTool = function(viewport, model) {
 		self.in_progress = true;
 		self.current_selection.clear();
 		self.current_selection.setAll(worldState.activeSelection);
-		self.initial_selection = this.current_selection.getPixels();
+		self.initial_selection = self.current_selection.getPixels();
 		worldState.activeSelection.clear();
 
 		Mousetrap.unbind('esc');
-		Mousetrap.bind('esc', this.cancelSelection);
+		Mousetrap.bind('esc', self.cancelSelection);
 	}
 
 	function endSelection() {
@@ -97,7 +97,7 @@ SelectionTool = function(viewport, model) {
 		self.initial_selection = null;
 
 		Mousetrap.unbind('esc');
-		Mousetrap.bind('esc', this.deselectAll);
+		Mousetrap.bind('esc', self.deselectAll);
 	}
 
 	// Stop selecting and save the current selection as final.
@@ -278,17 +278,19 @@ PlaneSelection = function(viewport, model) {
 
 		if (points.length < 3) {
 			if (points.length == 0)
-				startSelection();
+				self.startSelection(event);
 
 			points.push(self.model.getPosition(chosen.index));
 			// TODO needs actively selecting points to be distinct from
 			// already selected points or unselected points
 			if (self.subtrating) {
-				self.current_selection.unset(chosen.index, highlight);
+				self.current_selection.unset(chosen.index, self.highlight);
 			} else {
-				self.current_selection.set(chosen.index, highlight);
+				self.current_selection.set(chosen.index, self.highlight);
 			}
-		} else if (points.length == 3) {
+		}
+
+		if (points.length == 3) {
 			var line = new THREE.Line3(points[0], points[1]);
 			var dist = Util.distanceToLine(points[2], line, false);
 
@@ -305,7 +307,7 @@ PlaneSelection = function(viewport, model) {
 					if (self.subtracting) {
 						self.current_selection.unset(i);
 					} else {
-						self.current_selection.set(i, highlight);
+						self.current_selection.set(i, self.highlight);
 					}
 				}
 			});
