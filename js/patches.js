@@ -132,7 +132,10 @@ LGraph.prototype.dispatchEvent = function(event) {
 };
 
 /*
- * Mousetrap patch: don't block keybinding callbacks when a selection dropdown
+ * Mousetrap patches
+ */
+
+ /* don't block keybinding callbacks when a selection dropdown
  * is selected.
  */
 (function() {
@@ -140,5 +143,30 @@ LGraph.prototype.dispatchEvent = function(event) {
 
     Mousetrap.prototype.stopCallback = function(e, element) {
 		return oldStopCallback(e, element) && element.tagName != 'SELECT';
+	}
+})();
+
+/*
+ * Add mousetrap binding stack.
+
+ * Pushing a new binding overrides the current callback for that key/action,
+ * popping the next binding up restores it.
+
+ * Calling vanilla bind() or unbind() clears the whole stack.
+ */
+Mousetrap.prototype.pushBinding = function(keys, callback, action) {
+
+}
+
+Mousetrap.prototype.popBinding = function(keys) {
+
+}
+
+(function() {
+	var oldBind = Mousetrap.prototype.bind;
+	var oldUnbind = Mousetrap.prototype.unbind;
+
+    // Mousetrap.prototype.bind =
+    // Mousetrap.prototype.unbind =
 	}
 })();
